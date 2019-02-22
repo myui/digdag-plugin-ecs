@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.digdag.plugin.ecs;
+package io.digdag.plugin.aws.ecs;
 
 import io.digdag.spi.OperatorFactory;
 import io.digdag.spi.OperatorProvider;

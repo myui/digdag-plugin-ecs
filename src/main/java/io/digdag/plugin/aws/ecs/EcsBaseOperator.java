@@ -11,28 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.digdag.plugin.ecs;
-
-import io.digdag.spi.OperatorContext;
-import io.digdag.spi.SecretProvider;
-import io.digdag.standards.operator.state.TaskState;
-import io.digdag.util.BaseOperator;
-
-import java.util.concurrent.ThreadLocalRandom;
-
-import javax.annotation.Nonnull;
+package io.digdag.plugin.aws.ecs;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.services.ecs.AmazonECSAsyncClient;
-import com.amazonaws.services.ecs.AmazonECSAsyncClientBuilder;
 import com.amazonaws.services.ecs.AmazonECSClient;
 import com.amazonaws.services.ecs.AmazonECSClientBuilder;
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.io.BaseEncoding;
+import io.digdag.spi.OperatorContext;
+import io.digdag.spi.SecretProvider;
+import io.digdag.standards.operator.state.TaskState;
+import io.digdag.util.BaseOperator;
+
+import javax.annotation.Nonnull;
+import java.util.concurrent.ThreadLocalRandom;
 
 public abstract class EcsBaseOperator extends BaseOperator {
 
@@ -51,16 +47,10 @@ public abstract class EcsBaseOperator extends BaseOperator {
 
         AmazonECSClientBuilder clientBuilder =
                 AmazonECSClient.builder()
-                               .withCredentials(new AWSStaticCredentialsProvider(credentials))
-                               .withClientConfiguration(ecsClientConfiguration);
+                        .withCredentials(new AWSStaticCredentialsProvider(credentials))
+                        .withClientConfiguration(ecsClientConfiguration);
 
         return (AmazonECSClient) clientBuilder.build();
-    }
-
-    private AmazonECSAsyncClient getEcsAsyncClient() {
-        AmazonECSAsyncClientBuilder clientBuilder = AmazonECSAsyncClient.asyncBuilder();
-
-        return (AmazonECSAsyncClient) clientBuilder.build();
     }
 
     @Nonnull
@@ -71,14 +61,15 @@ public abstract class EcsBaseOperator extends BaseOperator {
 
     @Nonnull
     protected AWSCredentials credentials(@Nonnull String tag) {
+
         SecretProvider awsSecrets = context.getSecrets().getSecrets("aws");
         SecretProvider ecsSecrets = awsSecrets.getSecrets("ecs");
 
         String accessKeyId = ecsSecrets.getSecretOptional("access_key_id")
-                                       .or(() -> awsSecrets.getSecret("access_key_id"));
+                .or(() -> awsSecrets.getSecret("access_key_id"));
 
         String secretAccessKey = ecsSecrets.getSecretOptional("secret_access_key")
-                                           .or(() -> awsSecrets.getSecret("secret_access_key"));
+                .or(() -> awsSecrets.getSecret("secret_access_key"));
 
         return new BasicAWSCredentials(accessKeyId, secretAccessKey);
     }
