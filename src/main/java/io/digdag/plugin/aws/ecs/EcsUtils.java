@@ -1,3 +1,14 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package io.digdag.plugin.aws.ecs;
 
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
@@ -46,17 +57,15 @@ public final class EcsUtils {
     int targetDepth = originalDepth + 1;
 
     JsonToken token = context.getCurrentToken();
-    if (token == null)
+    if (token == null) {
       token = context.nextToken();
+    }
     if (token == VALUE_NULL) {
       return null;
     }
 
     final RegisterTaskDefinitionRequest request = new RegisterTaskDefinitionRequest();
-    while (true) {
-      if (token == null)
-        break;
-
+    while (token != null) {
       if (token == FIELD_NAME || token == START_OBJECT) {
         if (context.testExpression("family", targetDepth)) {
           context.nextToken();
@@ -141,17 +150,15 @@ public final class EcsUtils {
     int targetDepth = originalDepth + 1;
 
     JsonToken token = context.getCurrentToken();
-    if (token == null)
+    if (token == null) {
       token = context.nextToken();
+    }
     if (token == VALUE_NULL) {
       return null;
     }
 
     final RunTaskRequest request = new RunTaskRequest();
-    while (true) {
-      if (token == null)
-        break;
-
+    while (token != null) {
       if (token == FIELD_NAME || token == START_OBJECT) {
         if (context.testExpression("cluster", targetDepth)) {
           context.nextToken();

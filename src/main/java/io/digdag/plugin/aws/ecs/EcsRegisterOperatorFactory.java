@@ -85,7 +85,7 @@ public final class EcsRegisterOperatorFactory implements OperatorFactory {
       if (taskDefinition != null && fileName == null) {
         taskDef = getTaskDefinition(client, taskDefinition);
       } else if (fileName != null && taskDefinition == null) {
-        taskDef = registerTaskDefinition(client, fileName);
+        taskDef = registerTaskDefinition(client, fileName, config);
       } else {
         throw new ConfigException("Please specify one of 'task-definition' and 'file' option");
       }
@@ -94,16 +94,20 @@ public final class EcsRegisterOperatorFactory implements OperatorFactory {
 
     @Nonnull
     TaskDefinition registerTaskDefinition(@Nonnull AmazonECSClient client,
-        @Nonnull String fileName) {
+        @Nonnull String fileName, @Nonnull Config config) {
+      final RegisterTaskDefinitionRequest request;
+      // read task definition from file
       try (BufferedReader reader = workspace.newBufferedReader(fileName, UTF_8)) {
-        String json = CharStreams.toString(reader);
-        RegisterTaskDefinitionRequest request =
-            EcsUtils.unmarshallRegisterTaskDefinitionRequest(json);
-        RegisterTaskDefinitionResult result = client.registerTaskDefinition(request);
-        return result.getTaskDefinition();
+        String json = CharStreams.toString(reader);       
+        request = EcsUtils.unmarshallRegisterTaskDefinitionRequest(json);
       } catch (Exception ex) {
         throw new ConfigException("Failed to run register-task-definition: " + fileName, ex);
       }
+      // overwrite task definition by task config
+      
+      
+      RegisterTaskDefinitionResult result = client.registerTaskDefinition(request);
+      return result.getTaskDefinition();
     }
 
     @Nonnull
