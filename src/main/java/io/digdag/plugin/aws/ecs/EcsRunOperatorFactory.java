@@ -45,7 +45,7 @@ public final class EcsRunOperatorFactory implements OperatorFactory {
       Config config =
           request.getConfig().mergeDefault(request.getConfig().getNestedOrGetEmpty("ecs"));
 
-      AmazonECSClient client = getEcsClient();
+      AmazonECSClient client = getEcsClient(config);
 
 
 

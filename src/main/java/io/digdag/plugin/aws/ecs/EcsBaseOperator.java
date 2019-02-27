@@ -11,6 +11,8 @@
  */
 package io.digdag.plugin.aws.ecs;
 
+import io.digdag.client.config.Config;
+import io.digdag.client.config.ConfigException;
 import io.digdag.spi.OperatorContext;
 import io.digdag.spi.SecretProvider;
 import io.digdag.standards.operator.state.TaskState;
@@ -21,6 +23,8 @@ import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.client.builder.AwsClientBuilder;
+import com.amazonaws.regions.Regions;
 import com.amazonaws.services.ecs.AmazonECSClient;
 import com.amazonaws.services.ecs.AmazonECSClientBuilder;
 import com.google.common.base.Optional;
@@ -38,7 +42,7 @@ public abstract class EcsBaseOperator extends BaseOperator {
   }
 
   @Nonnull
-  protected AmazonECSClient getEcsClient() {
+  protected AmazonECSClient getEcsClient(@Nonnull Config config) {
     AWSCredentials credentials = credentials();
     ClientConfiguration ecsClientConfiguration = new ClientConfiguration();
 
@@ -46,7 +50,38 @@ public abstract class EcsBaseOperator extends BaseOperator {
         AmazonECSClient.builder().withCredentials(new AWSStaticCredentialsProvider(credentials))
             .withClientConfiguration(ecsClientConfiguration);
 
+    clientBuilder = configureEcsClientBuilder(clientBuilder, config);
+
     return (AmazonECSClient) clientBuilder.build();
+  }
+
+  @Nonnull
+  protected AmazonECSClientBuilder configureEcsClientBuilder(
+      @Nonnull AmazonECSClientBuilder clientBuilder, @Nonnull Config config) {
+    SecretProvider awsSecrets = context.getSecrets().getSecrets("aws");
+    SecretProvider ecsSecrets = awsSecrets.getSecrets("ecs");
+
+    Optional<String> ecsRegionName = first(() -> ecsSecrets.getSecretOptional("region"),
+        () -> awsSecrets.getSecretOptional("region"),
+        () -> config.getOptional("ecs.region", String.class));
+
+    Optional<String> ecsEndpoint = first(() -> ecsSecrets.getSecretOptional("endpoint"),
+        () -> config.getOptional("ecs.endpoint", String.class),
+        () -> ecsRegionName.transform(regionName -> "ecs." + regionName + ".amazonaws.com"));
+
+    if (ecsEndpoint.isPresent() && ecsRegionName.isPresent()) {
+      clientBuilder = clientBuilder.withEndpointConfiguration(
+          new AwsClientBuilder.EndpointConfiguration(ecsEndpoint.get(), ecsRegionName.get()));
+    } else if (ecsRegionName.isPresent()) {
+      final Regions region;
+      try {
+        region = Regions.fromName(ecsRegionName.get());
+      } catch (IllegalArgumentException e) {
+        throw new ConfigException("Illegal AWS region: " + ecsRegionName.get());
+      }
+      clientBuilder = clientBuilder.withRegion(region);
+    }
+    return clientBuilder;
   }
 
   @Nonnull
