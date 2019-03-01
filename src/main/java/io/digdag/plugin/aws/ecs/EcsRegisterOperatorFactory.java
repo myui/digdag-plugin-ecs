@@ -28,6 +28,8 @@ import java.io.BufferedReader;
 import java.time.Duration;
 import javax.annotation.Nonnull;
 import org.eclipse.jetty.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.ecs.AmazonECSClient;
 import com.amazonaws.services.ecs.model.DescribeTaskDefinitionRequest;
@@ -38,6 +40,7 @@ import com.amazonaws.services.ecs.model.TaskDefinition;
 import com.google.common.io.CharStreams;
 
 public final class EcsRegisterOperatorFactory implements OperatorFactory {
+  private static final Logger logger = LoggerFactory.getLogger(RegisterOperator.class);
 
   public EcsRegisterOperatorFactory(@Nonnull TemplateEngine templateEngine) {}
 
@@ -62,9 +65,10 @@ public final class EcsRegisterOperatorFactory implements OperatorFactory {
       Config config =
           request.getConfig().mergeDefault(request.getConfig().getNestedOrGetEmpty("ecs"));
 
-      AmazonECSClient client = getEcsClient();
+      AmazonECSClient client = getEcsClient(config);
 
       TaskDefinition taskDefinition = pollingRetryExecutor(state, "start")
+          .withErrorMessage("PollingRetryExecutor failed running getOrCreateTaskDefinition")
           .withRetryInterval(DurationInterval.of(Duration.ofSeconds(30), Duration.ofMinutes(5)))
           .retryUnless(AmazonServiceException.class,
               EcsRegisterOperatorFactory::isDeterministicException)
@@ -72,6 +76,7 @@ public final class EcsRegisterOperatorFactory implements OperatorFactory {
             return getOrCreateTaskDefinition(client, config);
           });
 
+      // store a task definition in ${ecs/last-task}
       return buildResult(taskDefinition);
     }
 
@@ -83,8 +88,10 @@ public final class EcsRegisterOperatorFactory implements OperatorFactory {
 
       final TaskDefinition taskDef;
       if (taskDefinition != null && fileName == null) {
+        // get an existing task definition
         taskDef = getTaskDefinition(client, taskDefinition);
       } else if (fileName != null && taskDefinition == null) {
+        // register a new task definition
         taskDef = registerTaskDefinition(client, fileName, config);
       } else {
         throw new ConfigException("Please specify one of 'task-definition' and 'file' option");
@@ -93,20 +100,22 @@ public final class EcsRegisterOperatorFactory implements OperatorFactory {
     }
 
     @Nonnull
-    TaskDefinition registerTaskDefinition(@Nonnull AmazonECSClient client,
-        @Nonnull String fileName, @Nonnull Config config) {
+    TaskDefinition registerTaskDefinition(@Nonnull AmazonECSClient client, @Nonnull String fileName,
+        @Nonnull Config config) {
       final RegisterTaskDefinitionRequest request;
       // read task definition from file
       try (BufferedReader reader = workspace.newBufferedReader(fileName, UTF_8)) {
-        String json = CharStreams.toString(reader);       
+        String json = CharStreams.toString(reader);
         request = EcsUtils.unmarshallRegisterTaskDefinitionRequest(json);
       } catch (Exception ex) {
         throw new ConfigException("Failed to run register-task-definition: " + fileName, ex);
       }
       // overwrite task definition by task config
       
-      
+
+      logger.info("Registering a task family definition {}", request.getFamily());
       RegisterTaskDefinitionResult result = client.registerTaskDefinition(request);
+
       return result.getTaskDefinition();
     }
 
@@ -124,7 +133,7 @@ public final class EcsRegisterOperatorFactory implements OperatorFactory {
   }
 
   static boolean isDeterministicException(@Nonnull AmazonServiceException ex) {
-    int statusCode = ex.getStatusCode();
+    final int statusCode = ex.getStatusCode();
     switch (statusCode) {
       case HttpStatus.TOO_MANY_REQUESTS_429:
       case HttpStatus.REQUEST_TIMEOUT_408:
@@ -139,7 +148,10 @@ public final class EcsRegisterOperatorFactory implements OperatorFactory {
       @Nonnull String taskDefinition) {
     DescribeTaskDefinitionRequest request =
         new DescribeTaskDefinitionRequest().withTaskDefinition(taskDefinition);
+
+    logger.info("Describing a task definition {}", taskDefinition);
     DescribeTaskDefinitionResult result = client.describeTaskDefinition(request);
+
     return result.getTaskDefinition();
   }
 
