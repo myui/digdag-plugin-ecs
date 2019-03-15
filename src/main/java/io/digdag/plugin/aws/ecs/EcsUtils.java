@@ -16,14 +16,17 @@ import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
+import java.util.Objects;
 import javax.annotation.Nonnull;
 import com.amazonaws.protocol.json.SdkStructuredPlainJsonFactory;
 import com.amazonaws.services.ecs.model.ContainerDefinition;
+import com.amazonaws.services.ecs.model.DescribeTaskDefinitionResult;
 import com.amazonaws.services.ecs.model.PlacementConstraint;
 import com.amazonaws.services.ecs.model.PlacementStrategy;
 import com.amazonaws.services.ecs.model.RegisterTaskDefinitionRequest;
 import com.amazonaws.services.ecs.model.RunTaskRequest;
 import com.amazonaws.services.ecs.model.Tag;
+import com.amazonaws.services.ecs.model.TaskDefinition;
 import com.amazonaws.services.ecs.model.TaskDefinitionPlacementConstraint;
 import com.amazonaws.services.ecs.model.Volume;
 import com.amazonaws.services.ecs.model.transform.ContainerDefinitionJsonUnmarshaller;
@@ -232,6 +235,58 @@ public final class EcsUtils {
     }
 
     return request;
+  }
+
+  public static boolean isReusableTaskDef(@Nonnull final DescribeTaskDefinitionResult result,
+      @Nonnull final RegisterTaskDefinitionRequest request) {
+    final TaskDefinition taskdef = result.getTaskDefinition();
+    if (!taskdef.getStatus().equals("ACTIVE")) {
+      return false;
+    }
+
+    if (!Objects.equals(request.getFamily(), taskdef.getFamily())) {
+      return false;
+    }
+    if (!Objects.equals(request.getTaskRoleArn(), taskdef.getTaskRoleArn())) {
+      return false;
+    }
+    if (!Objects.equals(request.getContainerDefinitions(), taskdef.getContainerDefinitions())) {
+      return false;
+    }
+    if (!Objects.equals(request.getCpu(), taskdef.getCpu())) {
+      return false;
+    }
+    if (!Objects.equals(request.getExecutionRoleArn(), taskdef.getExecutionRoleArn())) {
+      return false;
+    }
+    if (!Objects.equals(request.getIpcMode(), taskdef.getIpcMode())) {
+      return false;
+    }
+    if (!Objects.equals(request.getMemory(), taskdef.getMemory())) {
+      return false;
+    }
+    if (!Objects.equals(request.getNetworkMode(), taskdef.getNetworkMode())) {
+      return false;
+    }
+    if (!Objects.equals(request.getPidMode(), taskdef.getPidMode())) {
+      return false;
+    }
+    if (!Objects.equals(request.getPlacementConstraints(), taskdef.getPlacementConstraints())) {
+      return false;
+    }
+    if (!Objects.equals(request.getRequiresCompatibilities(),
+        taskdef.getRequiresCompatibilities())) {
+      return false;
+    }
+    if (!Objects.equals(request.getVolumes(), taskdef.getVolumes())) {
+      return false;
+    }
+
+    if (!Objects.equals(request.getTags(), result.getTags())) {
+      return false;
+    }
+
+    return true;
   }
 
 }
