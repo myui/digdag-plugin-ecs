@@ -35,7 +35,8 @@ public class EcsPlugin implements Plugin {
 
     @Override
     public List<OperatorFactory> get() {
-      return Arrays.asList(new EcsRegisterOperatorFactory(templateEngine));
+      return Arrays.asList(new EcsRegisterOperatorFactory(templateEngine),
+          new EcsRunOperatorFactory());
     }
   }
 }

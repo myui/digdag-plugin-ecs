@@ -1,2 +1,2 @@
-io.digdag.plugin.ecs.EcsPlugin
+io.digdag.plugin.aws.ecs.EcsPlugin
 

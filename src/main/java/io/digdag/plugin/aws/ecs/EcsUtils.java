@@ -16,11 +16,15 @@ import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
+import io.digdag.client.config.Config;
 import java.util.Objects;
 import javax.annotation.Nonnull;
+import org.eclipse.jetty.http.HttpStatus;
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.protocol.json.SdkStructuredPlainJsonFactory;
 import com.amazonaws.services.ecs.model.ContainerDefinition;
 import com.amazonaws.services.ecs.model.DescribeTaskDefinitionResult;
+import com.amazonaws.services.ecs.model.KeyValuePair;
 import com.amazonaws.services.ecs.model.PlacementConstraint;
 import com.amazonaws.services.ecs.model.PlacementStrategy;
 import com.amazonaws.services.ecs.model.RegisterTaskDefinitionRequest;
@@ -282,11 +286,28 @@ public final class EcsUtils {
       return false;
     }
 
-    if (!Objects.equals(request.getTags(), result.getTags())) {
-      return false;
-    }
+    // if (!Objects.equals(request.getTags(), result.getTags())) {
+    // return false;
+    // }
 
     return true;
+  }
+
+  @Nonnull
+  public static KeyValuePair buildKvPair(@Nonnull Config config) {
+    return new KeyValuePair().withName(config.get("name", String.class))
+        .withValue(config.get("value", String.class));
+  }
+
+  static boolean isDeterministicException(@Nonnull AmazonServiceException ex) {
+    final int statusCode = ex.getStatusCode();
+    switch (statusCode) {
+      case HttpStatus.TOO_MANY_REQUESTS_429:
+      case HttpStatus.REQUEST_TIMEOUT_408:
+        return false;
+      default:
+        return statusCode >= 400 && statusCode < 500;
+    }
   }
 
 }

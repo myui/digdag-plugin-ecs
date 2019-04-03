@@ -20,9 +20,12 @@ import io.digdag.util.BaseOperator;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.annotation.Nonnull;
 import com.amazonaws.ClientConfiguration;
-import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.Protocol;
+import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.ecs.AmazonECSClient;
@@ -43,16 +46,17 @@ public abstract class EcsBaseOperator extends BaseOperator {
 
   @Nonnull
   protected AmazonECSClient getEcsClient(@Nonnull Config config) {
-    AWSCredentials credentials = credentials();
-    ClientConfiguration ecsClientConfiguration = new ClientConfiguration();
+    AWSCredentialsProvider credentials = credentials();
+    ClientConfiguration ecsClientConfiguration =
+        new ClientConfiguration().withProtocol(Protocol.HTTPS);
 
-    AmazonECSClientBuilder clientBuilder =
-        AmazonECSClient.builder().withCredentials(new AWSStaticCredentialsProvider(credentials))
-            .withClientConfiguration(ecsClientConfiguration);
+    AmazonECSClientBuilder clientBuilder = AmazonECSClient.builder().withCredentials(credentials)
+        .withClientConfiguration(ecsClientConfiguration);
 
     clientBuilder = configureEcsClientBuilder(clientBuilder, config);
 
-    return (AmazonECSClient) clientBuilder.build();
+    AmazonECSClient client = (AmazonECSClient) clientBuilder.build();
+    return client;
   }
 
   @Nonnull
@@ -80,28 +84,41 @@ public abstract class EcsBaseOperator extends BaseOperator {
         throw new ConfigException("Illegal AWS region: " + ecsRegionName.get());
       }
       clientBuilder = clientBuilder.withRegion(region);
+    } else {
+      clientBuilder = clientBuilder.withRegion(Regions.US_EAST_1);
     }
     return clientBuilder;
   }
 
   @Nonnull
-  protected AWSCredentials credentials() {
+  protected AWSCredentialsProvider credentials() {
     String tag = state.constant("tag", String.class, EcsBaseOperator::randomTag);
     return credentials(tag);
   }
 
   @Nonnull
-  protected AWSCredentials credentials(@Nonnull String tag) {
+  protected AWSCredentialsProvider credentials(@Nonnull String tag) {
+    // 1. if profile is specified, use it
     SecretProvider awsSecrets = context.getSecrets().getSecrets("aws");
+    Optional<String> profile = awsSecrets.getSecretOptional("profile");
+    if (profile.isPresent()) {
+      return new ProfileCredentialsProvider(profile.get());
+    }
+
+    // 2. try access key and secret
     SecretProvider ecsSecrets = awsSecrets.getSecrets("ecs");
+    Optional<String> accessKeyId = first(() -> ecsSecrets.getSecretOptional("access_key_id"),
+        () -> awsSecrets.getSecretOptional("access_key_id"));
+    Optional<String> secretAccessKey =
+        first(() -> ecsSecrets.getSecretOptional("secret_access_key"),
+            () -> awsSecrets.getSecretOptional("secret_access_key"));
+    if (accessKeyId.isPresent() && secretAccessKey.isPresent()) {
+      return new AWSStaticCredentialsProvider(
+          new BasicAWSCredentials(accessKeyId.get(), secretAccessKey.get()));
+    }
 
-    String accessKeyId = ecsSecrets.getSecretOptional("access_key_id")
-        .or(() -> awsSecrets.getSecret("access_key_id"));
-
-    String secretAccessKey = ecsSecrets.getSecretOptional("secret_access_key")
-        .or(() -> awsSecrets.getSecret("secret_access_key"));
-
-    return new BasicAWSCredentials(accessKeyId, secretAccessKey);
+    // 3. fall back to default
+    return new DefaultAWSCredentialsProviderChain();
   }
 
   @Nonnull

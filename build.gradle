@@ -5,11 +5,11 @@ apply plugin: 'maven-publish'
 apply plugin: 'eclipse'
 apply plugin: 'idea'
 
-group = 'io.digdag.plugin'
+group = 'com.github.myui'
 version = '0.1.0'
 
 def digdagVersion = '0.9.28'
-def awsJavaSDKVersion = '1.11.497'
+def awsJavaSDKVersion = '1.11.526'
 
 repositories {
     mavenCentral()
@@ -28,6 +28,7 @@ dependencies {
     provided 'io.digdag:digdag-standards:' + digdagVersion
     provided 'io.digdag:digdag-plugin-utils:' + digdagVersion  // this should be 'compile' once digdag 0.8.2 is released to a built-in repository
     compile 'com.amazonaws:aws-java-sdk-ecs:' + awsJavaSDKVersion
+    compile 'com.amazonaws:aws-java-sdk-sts:' + awsJavaSDKVersion
 }
 
 sourceSets {
